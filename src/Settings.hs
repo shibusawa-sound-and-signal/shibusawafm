@@ -14,9 +14,10 @@ import           ClassyPrelude.Yesod
 import qualified Control.Exception           as Exception
 import           Data.Aeson                  (Result (..), fromJSON, withObject,
                                               (.!=), (.:?))
+import           Data.Aeson.Types            (modifyFailure)
 import           Data.FileEmbed              (embedFile)
 import           Data.Yaml                   (decodeEither')
-import           Database.Persist.Postgresql (PostgresConf)
+import           Database.Persist.Postgresql (PostgresConf(..))
 import           Language.Haskell.TH.Syntax  (Exp, Name, Q)
 import           Network.Wai.Handler.Warp    (HostPreference)
 import           Yesod.Default.Config2       (applyEnvValue, configSettingsYml)
@@ -24,13 +25,26 @@ import           Yesod.Default.Util          (WidgetFileSettings,
                                               widgetFileNoReload,
                                               widgetFileReload)
 
+newtype StringPostgresConf = StringPostgresConf PostgresConf
+
+getConf :: StringPostgresConf -> PostgresConf
+getConf postgresConf =
+    x where StringPostgresConf x = postgresConf
+
+instance FromJSON StringPostgresConf where
+    parseJSON v = modifyFailure ("Persistent: error loading PostgreSQL conf: " ++) $
+      flip (withObject "PostgresConf") v $ \o -> do
+        connectionString <- o .: "connectionString"
+        pool     <- o .: "poolsize"
+        return $ StringPostgresConf (PostgresConf {pgConnStr = encodeUtf8 connectionString, pgPoolSize = pool})
+
 -- | Runtime settings to configure this application. These settings can be
 -- loaded from various sources: defaults, environment variables, config files,
 -- theoretically even a database.
 data AppSettings = AppSettings
     { appStaticDir              :: String
     -- ^ Directory from which to serve static files.
-    , appDatabaseConf           :: PostgresConf
+    , appDatabaseConf           :: StringPostgresConf
     -- ^ Configuration settings for accessing the database.
     , appRoot                   :: Maybe Text
     -- ^ Base for all generated URLs. If @Nothing@, determined
