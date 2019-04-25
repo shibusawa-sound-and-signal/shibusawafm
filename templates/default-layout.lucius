@@ -1,6 +1,16 @@
+@black: rgba(0, 0, 0, 0.9);
+@white: rgba(255, 255, 255, 0.9);
+@green: rgba(0, 108, 79, 0.9);
+@brownish_orange: rgba(179, 89, 55, 0.9);
+
 .masthead,
 .navbar {
-    background-color: rgb(27, 28, 29);
+    background-color: #{brownish_orange};
+}
+
+.jumbotron {
+    background-color: #{black};
+    color: #{white};
 }
 
 .navbar-default .navbar-nav > .active > a {
@@ -40,32 +50,6 @@
 
 .masthead .btn {
     margin: 1em 0;
-}
-
-
-/* Common styles for all types */
-.bs-callout {
-  padding: 20px;
-  margin: 20px 0;
-  border: 1px solid #eee;
-  border-left-width: 5px;
-  border-radius: 3px;
-}
-
-.bs-callout p:last-child {
-  margin-bottom: 0;
-}
-
-.bs-callout-info {
-  border-left-color: #1b809e;
-}
-
-/* Space things out */
-.bs-docs-section {
-  margin-bottom: 60px;
-}
-.bs-docs-section:last-child {
-  margin-bottom: 0;
 }
 
 #message {
