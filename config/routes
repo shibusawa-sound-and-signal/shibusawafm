@@ -9,7 +9,7 @@
 
 / HomeR GET POST
 
-/annotated-track-list AnnotatedTrackListR GET
+/annotated-track-list/#Text AnnotatedTrackListR GET
 
 /comments CommentR POST
 

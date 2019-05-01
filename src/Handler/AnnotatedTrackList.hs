@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE RecordWildCards   #-}
 module Handler.AnnotatedTrackList where
 
@@ -13,5 +14,6 @@ instance ToJSON TrackAnnotation where
         [ "content" .= content
         ]
 
-getAnnotatedTrackListR :: Handler Value
-getAnnotatedTrackListR = returnJson $ TrackAnnotation "Holy Cow"
+getAnnotatedTrackListR :: Text -> Handler Value
+getAnnotatedTrackListR playlistOrAlbumId = returnJson $
+    TrackAnnotation  $ "Holy Cow " ++ playlistOrAlbumId
