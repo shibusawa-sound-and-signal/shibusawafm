@@ -15,5 +15,7 @@ instance ToJSON TrackAnnotation where
         ]
 
 getAnnotatedTrackListR :: Text -> Handler Value
-getAnnotatedTrackListR playlistOrAlbumId = returnJson $
-    TrackAnnotation  $ "Holy Cow " ++ playlistOrAlbumId
+getAnnotatedTrackListR playlistOrAlbumId = do
+    App {..} <- getYesod
+    let AppSettings {..} = appSettings
+       in returnJson $ TrackAnnotation $ "Holy Cow " ++ playlistOrAlbumId ++ spotifyKey
