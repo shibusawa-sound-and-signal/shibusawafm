@@ -22,3 +22,4 @@ cabal.sandbox.config
 shibusawafm.cabal
 .idea/
 shibusawafm.iml
+.envrc
