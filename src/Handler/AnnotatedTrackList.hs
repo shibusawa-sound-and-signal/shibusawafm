@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DuplicateRecordFields   #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Handler.AnnotatedTrackList where
@@ -14,16 +15,29 @@ import Control.Monad (mzero)
 a |> b = fmap b a
 
 data Artist = Artist {
-    name :: Text
+    name :: Text,
+    id :: Text
 } deriving (Show, Eq)
 
 instance FromJSON Artist where
-     parseJSON (Object o) = Artist <$> ((o .: "name"))
+     parseJSON (Object o) = Artist <$> (o .: "name")
+                <*> (o .: "id")
+     parseJSON _ = mzero
+
+data Album = Album {
+    name :: Text,
+    id :: Text
+} deriving (Show, Eq)
+
+instance FromJSON Album where
+     parseJSON (Object o) = Album <$> (o .: "name")
+                <*> (o .: "id")
      parseJSON _ = mzero
 
 data Track = Track {
     id :: Text,
     title :: Text,
+    album :: Album,
     artists :: [Artist]
 } deriving (Show, Eq)
 
@@ -46,6 +60,7 @@ instance FromJSON Track where
  parseJSON (Object o) =
     Track <$> ((o .: "track") >>= (.: "id"))
            <*> ((o .: "track") >>= (.: "name"))
+           <*> ((o .: "track") >>= (.: "album"))
            <*> ((o .: "track") >>= (.: "artists"))
  parseJSON _ = mzero
 
@@ -55,7 +70,23 @@ instance ToJSON Track where
     toJSON Track {..} = object
         [
             "id" .= id,
-            "title" .= title
+            "title" .= title,
+            "artists" .= artists,
+            "album" .= album
+        ]
+
+instance ToJSON Artist where
+    toJSON Artist {..} = object
+        [
+            "id" .= id,
+            "name" .= name
+        ]
+
+instance ToJSON Album where
+    toJSON Album {..} = object
+        [
+            "id" .= id,
+            "name" .= name
         ]
 
 
