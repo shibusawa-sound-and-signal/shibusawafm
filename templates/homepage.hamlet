@@ -6,3 +6,6 @@
             Curated Japanese Music
 
 <div .container>
+    <div #elm-node>
+    <script>
+        Elm.Main.init({ node: document.querySelector("#elm-node") })

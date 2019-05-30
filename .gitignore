@@ -23,3 +23,6 @@ shibusawafm.cabal
 .idea/
 shibusawafm.iml
 .envrc
+static/main.js
+elm-stuff/
+node_modules/
