@@ -27,7 +27,7 @@ trackListDecoder : Decoder (List Track)
 trackListDecoder =
   list <| map2 Track (field "id" string) (field "title" string)
 
-getData = Http.get
+getTrackList = Http.get
               { url = "/annotated-track-list/627twzacY3mbvUUySz0qPD"
               , expect = Http.expectJson Loaded trackListDecoder
               }
@@ -35,7 +35,7 @@ getData = Http.get
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Init, getData )
+    ( Init, getTrackList )
 
 
 type Model
