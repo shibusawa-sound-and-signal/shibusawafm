@@ -3,7 +3,9 @@ module Main exposing (Model(..), Msg(..), init, main, placeholderCard, update, v
 import Browser
 import Html exposing (Html, div, p, text)
 import Html.Attributes exposing (class)
+import Http
 import List exposing (repeat)
+import Json.Decode exposing (Decoder, field, list, map2, string)
 
 
 main =
@@ -14,10 +16,26 @@ main =
         , view = view
         }
 
+type alias Track =
+       {
+            id: String,
+            title: String
+       }
 
-init : () -> ( Model, Cmd msg )
+
+trackListDecoder : Decoder (List Track)
+trackListDecoder =
+  list <| map2 Track (field "id" string) (field "title" string)
+
+getData = Http.get
+              { url = "/annotated-track-list/627twzacY3mbvUUySz0qPD"
+              , expect = Http.expectJson Loaded trackListDecoder
+              }
+
+
+init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Init, Cmd.none )
+    ( Init, getData )
 
 
 type Model
@@ -25,7 +43,7 @@ type Model
 
 
 type Msg
-    = Msg
+    = Loaded (Result Http.Error (List Track))
 
 
 update msg model =
