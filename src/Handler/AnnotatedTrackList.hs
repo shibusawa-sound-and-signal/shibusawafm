@@ -24,14 +24,28 @@ instance FromJSON Artist where
                 <*> (o .: "id")
      parseJSON _ = mzero
 
+data Image = Image {
+    url :: Text,
+    height :: Int,
+    width :: Int
+} deriving (Show, Eq)
+
+instance FromJSON Image where
+     parseJSON (Object o) = Image <$> (o .: "url")
+                <*> (o .: "height")
+                <*> (o .: "width")
+     parseJSON _ = mzero
+
 data Album = Album {
     name :: Text,
-    id :: Text
+    id :: Text,
+    images :: [Image]
 } deriving (Show, Eq)
 
 instance FromJSON Album where
      parseJSON (Object o) = Album <$> (o .: "name")
                 <*> (o .: "id")
+                <*> (o .: "images")
      parseJSON _ = mzero
 
 data Track = Track {
@@ -82,11 +96,21 @@ instance ToJSON Artist where
             "name" .= name
         ]
 
+
+instance ToJSON Image where
+    toJSON Image {..} = object
+        [
+            "src" .= url,
+            "height" .= height,
+            "width" .= width
+        ]
+
 instance ToJSON Album where
     toJSON Album {..} = object
         [
             "id" .= id,
-            "name" .= name
+            "name" .= name,
+            "images" .= images
         ]
 
 
