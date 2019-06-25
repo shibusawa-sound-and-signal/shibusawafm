@@ -5,7 +5,6 @@ import Html exposing (Html, div, img, p, text)
 import Html.Attributes exposing (attribute, class, property, src, width)
 import Http
 import Json.Decode exposing (Decoder, field, int, list, map2, map3, map4, string)
-import Json.Encode as Encode
 import List exposing (repeat)
 
 
@@ -105,15 +104,28 @@ placeholderPng =
 
 
 card cardTitle artists imageSrc =
-    div [ class "col-md-3" ]
-        [ div [ class "card", class "mb-4", class "shadow-sm" ]
-            [ img [ src imageSrc, attribute "width" "100%" ] []
-            , div [ class "card-body" ]
-                [ p [ class "card-text" ] [ text cardTitle ]
-                , p [ class "card-text" ] [ text artists ]
-                , div [ class "d-flex", class "justify-content-between", class "align-items-center" ]
-                    []
+    div
+        [ class "col-md-6" ]
+        [ div
+            [ class "row"
+            , class "mb-4"
+            , class "shadow-sm"
+            , class "no-gutters"
+            , class "border"
+            , class "rounded"
+            ]
+            [ div [ class "col-md-8", class "p-2" ]
+                [ div [] [ text cardTitle ]
+                , div [ class "text-muted" ] [ text artists ]
+                , div [] [ text "one line two line" ]
+                , div [] [ text "three line four" ]
                 ]
+            , div [ class "col-md-4" ]
+                [ img [ src imageSrc, attribute "width" "100%" ] []
+                ]
+            , div
+                [ class "col-md-12", class "p-2" ]
+                [ text "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat." ]
             ]
         ]
 
@@ -153,7 +165,6 @@ cards model =
 
 
 view model =
-    div [ class "album", class "py-5", class "bg-light" ]
-        [ div [ class "container" ]
-            [ div [ class "row" ] <| cards model ]
+    div [ class "py-5" ]
+        [ div [ class "row" ] <| cards model
         ]
