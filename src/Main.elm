@@ -4,8 +4,9 @@ import Browser
 import Html exposing (Html, div, img, p, text)
 import Html.Attributes exposing (attribute, class, property, src, width)
 import Http
-import Json.Decode exposing (Decoder, field, int, list, map2, map3, map4, string)
+import Json.Decode exposing (Decoder, field, int, list, map2, map3, map4, map5, nullable, string)
 import List exposing (repeat)
+import Markdown
 
 
 main =
@@ -37,11 +38,18 @@ type alias Album =
     }
 
 
+type alias Comment =
+    { headline : String
+    , excerpt : String
+    }
+
+
 type alias Track =
     { id : String
     , title : String
     , artists : List Artist
     , album : Album
+    , comment : Maybe Comment
     }
 
 
@@ -64,14 +72,19 @@ albumDecoder =
     map3 Album (field "id" string) (field "name" string) (field "images" (list imageDecoder))
 
 
+commentDecoder : Decoder Comment
+commentDecoder =
+    map2 Comment (field "headline" string) (field "excerpt" string)
+
+
 trackListDecoder : Decoder TrackList
 trackListDecoder =
-    list <| map4 Track (field "id" string) (field "title" string) (field "artists" (list artistDecorder)) (field "album" albumDecoder)
+    list <| map5 Track (field "id" string) (field "title" string) (field "artists" (list artistDecorder)) (field "album" albumDecoder) (field "comment" (nullable commentDecoder))
 
 
 getTrackList =
     Http.get
-        { url = "/annotated-track-list/627twzacY3mbvUUySz0qPD"
+        { url = "/playlist/627twzacY3mbvUUySz0qPD"
         , expect = Http.expectJson Loaded trackListDecoder
         }
 
@@ -103,7 +116,7 @@ placeholderPng =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5fY51AAAC+0lEQVR42u3UQREAAAQAQVLJon8QcjC7Ee5xGV0TAAekYQGGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWYFiGBRgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFiAYRkWYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQGGZViAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBRiWDIBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBhmVYgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgUYlmEBhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBbw2QIT2dTQOj7WUQAAAABJRU5ErkJggg=="
 
 
-card cardTitle artists imageSrc =
+card cardTitle artists imageSrc headline excerpt =
     div
         [ class "col-md-6" ]
         [ div
@@ -117,21 +130,21 @@ card cardTitle artists imageSrc =
             [ div [ class "col-md-8", class "p-2" ]
                 [ div [] [ text cardTitle ]
                 , div [ class "text-muted" ] [ text artists ]
-                , div [] [ text "one line two line" ]
-                , div [] [ text "three line four" ]
+                , div [] <| Markdown.toHtml Nothing headline
                 ]
             , div [ class "col-md-4" ]
                 [ img [ src imageSrc, attribute "width" "100%" ] []
                 ]
             , div
                 [ class "col-md-12", class "p-2" ]
-                [ text "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat." ]
+              <|
+                Markdown.toHtml Nothing excerpt
             ]
         ]
 
 
 placeholderCard =
-    card "~~~~~~~~~~" "~~~~~~~~~~" placeholderPng
+    card "~~~~~~~~~~" "~~~~~~~~~~" placeholderPng "_~~~~~~~~~~_" "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
 
 artistListString : List Artist -> String
@@ -152,6 +165,8 @@ trackCard track =
         track.title
         (artistListString track.artists)
         (Maybe.withDefault "" <| Maybe.map .src (mediumImage track.album.images))
+        (Maybe.withDefault "" <| Maybe.map .headline track.comment)
+        (Maybe.withDefault "" <| Maybe.map .excerpt track.comment)
 
 
 cards : Model -> List (Html Msg)

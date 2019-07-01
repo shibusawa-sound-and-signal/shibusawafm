@@ -9,8 +9,6 @@
 
 / HomeR GET
 
-/annotated-track-list/#Text AnnotatedTrackListR GET
-
-/comments CommentR POST
+/playlist/#Text PlaylistR GET
 
 /profile ProfileR GET

@@ -4,19 +4,20 @@
 {-# LANGUAGE DuplicateRecordFields   #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module Handler.AnnotatedTrackList where
+module SpotifyRest where
 
 import Import
-import Network.HTTP.Req as R
 import Data.Aeson
+import Network.HTTP.Req as R
 import Control.Monad (mzero)
 
 (|>) :: Functor f => f a -> (a -> b) -> f b
 a |> b = fmap b a
 
+
 data Artist = Artist {
     name :: Text,
-    id :: Text
+    artistId :: Text
 } deriving (Show, Eq)
 
 instance FromJSON Artist where
@@ -38,7 +39,7 @@ instance FromJSON Image where
 
 data Album = Album {
     name :: Text,
-    id :: Text,
+    albumId :: Text,
     images :: [Image]
 } deriving (Show, Eq)
 
@@ -49,7 +50,7 @@ instance FromJSON Album where
      parseJSON _ = mzero
 
 data Track = Track {
-    id :: Text,
+    trackId :: Text,
     title :: Text,
     album :: Album,
     artists :: [Artist]
@@ -83,7 +84,7 @@ newtype TrackList = TrackList [Track] deriving (Show, Eq, ToJSON)
 instance ToJSON Track where
     toJSON Track {..} = object
         [
-            "id" .= id,
+            "id" .= trackId,
             "title" .= title,
             "artists" .= artists,
             "album" .= album
@@ -92,7 +93,7 @@ instance ToJSON Track where
 instance ToJSON Artist where
     toJSON Artist {..} = object
         [
-            "id" .= id,
+            "id" .= artistId,
             "name" .= name
         ]
 
@@ -108,7 +109,7 @@ instance ToJSON Image where
 instance ToJSON Album where
     toJSON Album {..} = object
         [
-            "id" .= id,
+            "id" .= albumId,
             "name" .= name,
             "images" .= images
         ]
@@ -119,15 +120,6 @@ instance FromJSON TrackList where
         tracks <- o .: "tracks"
         items <- tracks .: "items"
         return $ TrackList items
-
-data TrackAnnotation = TrackAnnotation
-    { content :: Text
-    }
-
-instance ToJSON TrackAnnotation where
-    toJSON TrackAnnotation {..} = object
-        [ "content" .= content
-        ]
 
 getAccessToken :: MonadHttp m => Text -> Text -> m TokenResponse
 getAccessToken secret refreshToken =
@@ -142,12 +134,3 @@ getTrackList accessToken playlistId =
     let url = (https "api.spotify.com"/:"v1"/:"playlists" /: playlistId)
         options = header "Authorization" (concat ["Bearer ", encodeUtf8 accessToken]) in
             req R.GET url NoReqBody jsonResponse options |> R.responseBody
-
-getAnnotatedTrackListR :: Text -> Handler Value
-getAnnotatedTrackListR playlistOrAlbumId = do
-    App {..} <- getYesod
-    let AppSettings {..} = appSettings in
-        R.runReq def $ do
-            TokenResponse {..} <- getAccessToken spotifySecret spotifyKey
-            tracks <- getTrackList accessToken playlistOrAlbumId
-            returnJson tracks
