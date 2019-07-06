@@ -91,6 +91,7 @@ instance FromJSON AudioFeaturesList where
 
 
 data AudioAnalysis = AudioAnalysis {
+    audioAnalysisTrackId :: Text
 } deriving (Show, Eq)
 
 

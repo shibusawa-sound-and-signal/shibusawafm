@@ -1,13 +1,14 @@
 module Main exposing (Model(..), Msg(..), init, main, placeholderCard, update, view)
 
 import Browser
-import Html exposing (Html, div, img, p, text)
-import Html.Attributes exposing (attribute, class, property, src, width)
+import Html exposing (Html, div, img, span, text)
+import Html.Attributes exposing (attribute, class, src, style)
 import Http
-import Json.Decode exposing (Decoder, field, int, list, map2, map3, map4, map5, nullable, string)
+import Json.Decode exposing (Decoder, field, float, int, list, map2, map3, map6, nullable, string)
 import List exposing (repeat)
 import Markdown
 
+showGraph = False
 
 main =
     Browser.element
@@ -50,6 +51,14 @@ type alias Track =
     , artists : List Artist
     , album : Album
     , comment : Maybe Comment
+    , features : TrackFeatures
+    }
+
+
+type alias TrackFeatures =
+    { danceability : Float
+    , energy : Float
+    , tempo : Float
     }
 
 
@@ -77,9 +86,24 @@ commentDecoder =
     map2 Comment (field "headline" string) (field "excerpt" string)
 
 
+trackDecoder : Decoder Track
+trackDecoder =
+    map6 Track
+        (field "id" string)
+        (field "title" string)
+        (field "artists" (list artistDecorder))
+        (field "album" albumDecoder)
+        (field "comment" (nullable commentDecoder))
+        (map3 TrackFeatures
+            (field "danceability" float)
+            (field "energy" float)
+            (field "tempo" float)
+        )
+
+
 trackListDecoder : Decoder TrackList
 trackListDecoder =
-    list <| map5 Track (field "id" string) (field "title" string) (field "artists" (list artistDecorder)) (field "album" albumDecoder) (field "comment" (nullable commentDecoder))
+    list trackDecoder
 
 
 getTrackList =
@@ -179,7 +203,47 @@ cards model =
             List.map trackCard tracks
 
 
+graph : String -> String -> Float -> List Float -> Html Msg
+graph colorString _ domain values =
+    div
+        [ style "display" "flex"
+        , style "flex-direction" "row"
+        , style "align-items" "flex-end"
+        , style "height" "50px"
+        , style "width" "100%"
+        ]
+        (List.map
+            (\v ->
+                span
+                    [ style "height" (String.fromFloat ((v / domain) * 100) ++ "%")
+                    , style "background-color" colorString
+                    , style "flex-grow" "1"
+                    , style "border-left" "1px solid black"
+                    ]
+                    []
+            )
+            values
+        )
+
+
+visualization : Model -> List (Html Msg)
+visualization model =
+    case model of
+        Init ->
+            []
+
+        Ready tracks ->
+            if showGraph then
+                [ graph "green" "energy" 1.0 <| List.map (\t -> t.features.energy) tracks
+                , graph "red" "tempo" 200.0 <| List.map (\t -> t.features.tempo) tracks
+                , graph "blue" "danceability" 1.0 <| List.map (\t -> t.features.danceability) tracks
+                ]
+            else
+                []
+
+
 view model =
     div [ class "py-5" ]
-        [ div [ class "row" ] <| cards model
+        [ div [ class "row" ] <| visualization model
+        , div [ class "row" ] <| cards model
         ]
