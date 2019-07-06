@@ -7,6 +7,7 @@ module Handler.Playlist where
 
 import Import
 import SpotifyRest
+import Control.Monad
 import Network.HTTP.Req as R
 
 data CommentedTrack = CommentedTrack
@@ -15,6 +16,9 @@ data CommentedTrack = CommentedTrack
         title :: Text,
         album :: Album,
         artists :: [Artist],
+        danceability :: Maybe Float,
+        energy ::  Maybe Float,
+        tempo :: Maybe Float,
         comment :: Maybe TrackComment
     }
 
@@ -25,6 +29,9 @@ instance ToJSON CommentedTrack where
             "title" .= title,
             "artists" .= artists,
             "album" .= album,
+            "danceability" .= danceability,
+            "energy" .= energy,
+            "tempo" .= tempo,
             "comment" .= comment
         ]
 
@@ -35,24 +42,37 @@ selectCommentsBySpotifyId :: [Text] -> DB [Entity TrackComment]
 selectCommentsBySpotifyId spotifyTrackIds = selectList [TrackCommentSpotifyId <-. spotifyTrackIds] [Asc TrackCommentId]
 
 
-makeCommentedTrack :: Track -> Maybe TrackComment -> CommentedTrack
-makeCommentedTrack Track {..} maybeComment =
+makeCommentedTrack :: Track -> Maybe TrackComment -> Maybe AudioFeatures -> CommentedTrack
+makeCommentedTrack Track {..} maybeComment maybeFeatures =
     CommentedTrack {
         commentedTrackId = trackId,
         title= title,
         artists= artists,
         album= album,
-        comment = maybeComment
+        comment = maybeComment,
+        danceability = map SpotifyRest.danceability maybeFeatures,
+        energy = map SpotifyRest.energy maybeFeatures,
+        tempo = map SpotifyRest.tempo maybeFeatures
     }
 
 findComment :: [TrackComment] -> Text -> Maybe TrackComment
 findComment comments spotifyTrackId =
     find (\comment -> (trackCommentSpotifyId comment) == spotifyTrackId) comments
 
-mergeCommentsAndTracks :: TrackList -> [TrackComment] -> [CommentedTrack]
-mergeCommentsAndTracks (TrackList tracks) comments =
+findFeatures :: [AudioFeatures] -> Text -> Maybe AudioFeatures
+findFeatures features spotifyTrackId =
+    find (\feature -> (audioFeaturesTrackId feature) == spotifyTrackId) features
+
+findAnalysis :: [AudioAnalysis] -> Text -> Maybe AudioAnalysis
+findAnalysis analyses spotifyTrackId =
+    find (\analysis -> (audioAnalysisTrackId analysis) == spotifyTrackId) analyses
+
+mergeCommentsAndTracks :: TrackList -> [TrackComment] -> [AudioFeatures] -> [CommentedTrack]
+mergeCommentsAndTracks (TrackList tracks) comments features =
     map
-        (\track -> makeCommentedTrack track (findComment comments (trackId track)))
+        (\track -> makeCommentedTrack track
+            (findComment comments (trackId track))
+            (findFeatures features (trackId track)))
         tracks
 
 valueFromEntity :: Entity a -> a
@@ -62,9 +82,12 @@ getPlaylistR :: Text -> Handler Value
 getPlaylistR playlistOrAlbumId = do
     App {..} <- getYesod
     let AppSettings {..} = appSettings in do
-        trackList <- R.runReq def $ do
+        (trackList, features) <- R.runReq def $ do
             TokenResponse {..} <- getAccessToken spotifySecret spotifyKey
             tracks <- getTrackList accessToken playlistOrAlbumId
-            pure tracks
+            audioFeatures <- getAudioFeatures accessToken $ map trackId $ getTracks tracks
+--             audioAnalyses <- mapM (getAudioAnalysis accessToken) (map trackId $ getTracks tracks)
+            pure (tracks, audioFeatures)
+
         comments <- runDB $ selectCommentsBySpotifyId $ map trackId $ getTracks trackList
-        returnJson $ mergeCommentsAndTracks trackList $ map valueFromEntity comments
+        returnJson $ mergeCommentsAndTracks trackList (map valueFromEntity comments) (audioFeatures features)

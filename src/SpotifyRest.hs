@@ -63,6 +63,42 @@ data TokenResponse = TokenResponse {
     scope :: Text
 } deriving (Show, Eq)
 
+data AudioFeatures = AudioFeatures {
+    audioFeaturesTrackId :: Text,
+    danceability :: Float,
+    energy :: Float,
+    tempo :: Float
+} deriving (Show, Eq)
+
+data AudioFeaturesList = AudioFeaturesList {
+    audioFeatures :: [AudioFeatures]
+} deriving (Show, Eq)
+
+
+instance FromJSON AudioFeatures where
+ parseJSON (Object o) =
+    AudioFeatures <$> (o .: "id")
+           <*> (o .: "danceability")
+           <*> (o .: "energy")
+           <*> (o .: "tempo")
+ parseJSON _ = mzero
+
+
+instance FromJSON AudioFeaturesList where
+ parseJSON (Object o) =
+    AudioFeaturesList <$> (o .: "audio_features")
+ parseJSON _ = mzero
+
+
+data AudioAnalysis = AudioAnalysis {
+} deriving (Show, Eq)
+
+
+instance FromJSON AudioAnalysis where
+ parseJSON (Object o) =
+    AudioAnalysis <$> (o .: "id")
+ parseJSON _ = mzero
+
 instance FromJSON TokenResponse where
  parseJSON (Object o) =
     TokenResponse <$> (o .: "access_token")
@@ -132,5 +168,18 @@ getAccessToken secret refreshToken =
 getTrackList :: MonadHttp m => Text -> Text -> m TrackList
 getTrackList accessToken playlistId =
     let url = (https "api.spotify.com"/:"v1"/:"playlists" /: playlistId)
+        options = header "Authorization" (concat ["Bearer ", encodeUtf8 accessToken]) in
+            req R.GET url NoReqBody jsonResponse options |> R.responseBody
+
+getAudioFeatures :: MonadHttp m => Text -> [Text] -> m AudioFeaturesList
+getAudioFeatures accessToken trackIds =
+    let url = (https "api.spotify.com"/:"v1"/:"audio-features")
+        trackIdParamValue = Just $ intercalate "," trackIds
+        options = header "Authorization" (concat ["Bearer ", encodeUtf8 accessToken]) <> queryParam "ids" trackIdParamValue in
+            req R.GET url NoReqBody jsonResponse options |> R.responseBody
+
+getAudioAnalysis :: MonadHttp m => Text -> Text -> m AudioAnalysis
+getAudioAnalysis accessToken trackId =
+    let url = (https "api.spotify.com"/:"v1"/:"audio-analysis" /: trackId)
         options = header "Authorization" (concat ["Bearer ", encodeUtf8 accessToken]) in
             req R.GET url NoReqBody jsonResponse options |> R.responseBody
