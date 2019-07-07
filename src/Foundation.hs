@@ -161,6 +161,7 @@ instance Yesod App where
         -> Handler AuthResult
     -- Routes not requiring authentication.
     isAuthorized (AuthR _) _ = return Authorized
+    isAuthorized SpotifyLoginR _ = return Authorized
     isAuthorized (PlaylistR _)  _ = return Authorized
     isAuthorized HomeR _ = return Authorized
     isAuthorized FaviconR _ = return Authorized
