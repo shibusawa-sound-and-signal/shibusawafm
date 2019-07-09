@@ -8,7 +8,10 @@ import Json.Decode exposing (Decoder, field, float, int, list, map2, map3, map6,
 import List exposing (repeat)
 import Markdown
 
-showGraph = False
+
+showGraph =
+    False
+
 
 main =
     Browser.element
@@ -140,29 +143,34 @@ placeholderPng =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5fY51AAAC+0lEQVR42u3UQREAAAQAQVLJon8QcjC7Ee5xGV0TAAekYQGGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWYFiGBRgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFiAYRkWYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQGGZViAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBRiWDIBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBhmVYgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgUYlmEBhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBbw2QIT2dTQOj7WUQAAAABJRU5ErkJggg=="
 
 
+
+--SmalldownDoc =
+--
+--
+--smallDownParser : Parser SmalldownDoc
+--smallDownParser = succeed SmalldownDoc
+
+
+smallDown : String -> Html Msg
+smallDown text =
+    Html.text text
+
+--<span style="width: 80px;"><img src="https://i.scdn.co/image/1d7f51e9be48c869fb853f999368867a8a51de43" width="80px"></span><div style="display: inline-block;"><div>Face My Fears - Japanese Version</div><div class="text-muted">Hikaru Utada, Skrillex</div></div><div style="display: inline;">_Nobody’s born a coward_ | At the outset of an adventure, much is unknown - but the combination of affirmations and the energy of a frantic beat that reflects the energy of starting something new bodes well for the adventure.</div>
+
 card cardTitle artists imageSrc headline excerpt =
     div
-        [ class "col-md-6" ]
-        [ div
-            [ class "row"
-            , class "mb-4"
-            , class "shadow-sm"
-            , class "no-gutters"
-            , class "border"
-            , class "rounded"
+        []
+        [ span [ style "width" "80px" ]
+            [ img [ src imageSrc, attribute "width" "80px" ] []
             ]
-            [ div [ class "col-md-8", class "p-2" ]
-                [ div [] [ text cardTitle ]
-                , div [ class "text-muted" ] [ text artists ]
-                , div [] <| Markdown.toHtml Nothing headline
-                ]
-            , div [ class "col-md-4" ]
-                [ img [ src imageSrc, attribute "width" "100%" ] []
-                ]
-            , div
-                [ class "col-md-12", class "p-2" ]
-              <|
-                Markdown.toHtml Nothing excerpt
+        , div []
+            [ span [] [ text cardTitle ]
+            , span [ class "text-muted" ] [ text artists ]
+            ]
+        , div []
+            [ smallDown headline
+            , Html.text " | "
+            , smallDown excerpt
             ]
         ]
 
@@ -238,6 +246,7 @@ visualization model =
                 , graph "red" "tempo" 200.0 <| List.map (\t -> t.features.tempo) tracks
                 , graph "blue" "danceability" 1.0 <| List.map (\t -> t.features.danceability) tracks
                 ]
+
             else
                 []
 
