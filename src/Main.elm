@@ -1,13 +1,18 @@
 module Main exposing (Model(..), Msg(..), init, main, placeholderCard, update, view)
 
 import Browser
-import Html exposing (Html, div, img, span, text)
-import Html.Attributes exposing (attribute, class, src, style)
+import Html exposing (Html, div, em, img, input, section, span, text, textarea)
+import Html.Attributes exposing (attribute, class, src, style, value)
+import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, field, float, int, list, map2, map3, map6, nullable, string)
 import List exposing (repeat)
-import Markdown
 
+-- TODO: render background of modal as translucent
+-- TODO: position modal centered
+-- TODO: on edit, append a work item to the work queue (post this track comment to the server)
+-- TODO: if there are items in the work queue, check to see when they are ready, and save them
+-- TODO: if there is another pending track save of the same track, overwrite it
 
 showGraph =
     False
@@ -121,19 +126,53 @@ init _ =
     ( Init, getTrackList )
 
 
+type UIMode
+    = Default
+    | Editing Track
+
+
 type Model
     = Init
-    | Ready TrackList
+    | Ready TrackList UIMode
+
+
+editing : Model -> Track -> Model
+editing model track =
+    case model of
+        Ready tracks _ ->
+            Ready tracks (Editing track)
+
+        _ ->
+            model
 
 
 type Msg
     = Loaded (Result Http.Error TrackList)
+    | NoOp
+    | OpenEditor Track
+    | EditTrack Track
+
+
+changeTrack : Model -> Track -> Model
+changeTrack model track =
+    case model of
+        Ready tracks _ ->
+            Ready tracks (Editing track)
+
+        _ ->
+            model
 
 
 update msg model =
     case msg of
         Loaded (Ok tracks) ->
-            ( Ready tracks, Cmd.none )
+            ( Ready tracks Default, Cmd.none )
+
+        OpenEditor track ->
+            ( editing model track, Cmd.none )
+
+        EditTrack track ->
+            ( editing (changeTrack model track) track, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -143,40 +182,21 @@ placeholderPng =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5fY51AAAC+0lEQVR42u3UQREAAAQAQVLJon8QcjC7Ee5xGV0TAAekYQGGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWYFiGBRgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFiAYRkWYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQGGZViAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBRiWDIBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBhmVYgGEBGBZgWACGBWBYgGEBGBaAYQGGBWBYAIYFGBaAYQEYFmBYAIYFYFiAYQEYFoBhAYYFYFgAhgUYFoBhARgWYFgAhgUYlmEBhgVgWIBhARgWgGEBhgVgWACGBRgWgGEBGBbw2QIT2dTQOj7WUQAAAABJRU5ErkJggg=="
 
 
-
---SmalldownDoc =
---
---
---smallDownParser : Parser SmalldownDoc
---smallDownParser = succeed SmalldownDoc
-
-
-smallDown : String -> Html Msg
-smallDown text =
-    Html.text text
-
---<span style="width: 80px;"><img src="https://i.scdn.co/image/1d7f51e9be48c869fb853f999368867a8a51de43" width="80px"></span><div style="display: inline-block;"><div>Face My Fears - Japanese Version</div><div class="text-muted">Hikaru Utada, Skrillex</div></div><div style="display: inline;">_Nobody’s born a coward_ | At the outset of an adventure, much is unknown - but the combination of affirmations and the energy of a frantic beat that reflects the energy of starting something new bodes well for the adventure.</div>
-
-card cardTitle artists imageSrc headline excerpt =
-    div
-        []
-        [ span [ style "width" "80px" ]
-            [ img [ src imageSrc, attribute "width" "80px" ] []
+card cardTitle artists imageSrc headline excerpt clickMsg =
+    span
+        [ class "p-1", onClick clickMsg ]
+        [ img [ src imageSrc, attribute "width" "40px", style "vertical-align" "baseline" ] []
+        , div [ style "display" "inline-block", class "px-2" ]
+            [ div [ class "p-2" ] [ text cardTitle ]
+            , div [ class "text-muted", class "p-2" ] [ text artists ]
             ]
-        , div []
-            [ span [] [ text cardTitle ]
-            , span [ class "text-muted" ] [ text artists ]
-            ]
-        , div []
-            [ smallDown headline
-            , Html.text " | "
-            , smallDown excerpt
-            ]
+        , span [ style "font-size" "24px", class "px-2" ] [ em [] [ Html.text headline ] ]
+        , span [ class "text-muted", class "px-2", style "line-height" "3" ] [ Html.text excerpt ]
         ]
 
 
 placeholderCard =
-    card "~~~~~~~~~~" "~~~~~~~~~~" placeholderPng "_~~~~~~~~~~_" "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    card "\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}" "\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}" placeholderPng "\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}" "\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}" NoOp
 
 
 artistListString : List Artist -> String
@@ -196,9 +216,10 @@ trackCard track =
     card
         track.title
         (artistListString track.artists)
-        (Maybe.withDefault "" <| Maybe.map .src (mediumImage track.album.images))
+        (Maybe.withDefault placeholderPng <| Maybe.map .src (mediumImage track.album.images))
         (Maybe.withDefault "" <| Maybe.map .headline track.comment)
         (Maybe.withDefault "" <| Maybe.map .excerpt track.comment)
+        (OpenEditor track)
 
 
 cards : Model -> List (Html Msg)
@@ -207,7 +228,7 @@ cards model =
         Init ->
             repeat 12 placeholderCard
 
-        Ready tracks ->
+        Ready tracks _ ->
             List.map trackCard tracks
 
 
@@ -240,7 +261,7 @@ visualization model =
         Init ->
             []
 
-        Ready tracks ->
+        Ready tracks _ ->
             if showGraph then
                 [ graph "green" "energy" 1.0 <| List.map (\t -> t.features.energy) tracks
                 , graph "red" "tempo" 200.0 <| List.map (\t -> t.features.tempo) tracks
@@ -251,8 +272,52 @@ visualization model =
                 []
 
 
+setCommentHeadline : Track -> String -> Track
+setCommentHeadline track newHeadline =
+    track.comment
+        |> Maybe.withDefault { headline = "", excerpt = "" }
+        |> (\comment -> { comment | headline = newHeadline })
+        |> (\comment -> { track | comment = Just comment })
+
+
+setCommentExcerpt : Track -> String -> Track
+setCommentExcerpt track newExcerpt =
+    track.comment
+        |> Maybe.withDefault { headline = "", excerpt = "" }
+        |> (\comment -> { comment | excerpt = newExcerpt })
+        |> (\comment -> { track | comment = Just comment })
+
+
+editingView : Track -> Html Msg
+editingView track =
+    div
+        [ style "position" "fixed"
+        , style "background-color" "green"
+        , style "height" "100vh"
+        , style "width" "100vw"
+        , style "top" "0"
+        , style "left" "0"
+        ]
+        [ section []
+            [ input [ onInput (setCommentHeadline track >> EditTrack), value <| Maybe.withDefault "" <| Maybe.map .headline track.comment ] []
+            , textarea [ onInput (setCommentExcerpt track >> EditTrack), value <| Maybe.withDefault "" <| Maybe.map .excerpt track.comment ] []
+            ]
+        ]
+
+
+modalContainer : Model -> Html Msg
+modalContainer model =
+    case model of
+        Ready _ (Editing track) ->
+            editingView track
+
+        _ ->
+            Html.text ""
+
+
 view model =
     div [ class "py-5" ]
         [ div [ class "row" ] <| visualization model
-        , div [ class "row" ] <| cards model
+        , div [] <| cards model
+        , modalContainer model
         ]
