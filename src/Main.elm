@@ -1,18 +1,17 @@
 module Main exposing (Model(..), Msg(..), init, main, placeholderCard, update, view)
 
 import Browser
-import Html exposing (Html, div, em, img, input, section, span, text, textarea)
+import Dict exposing (Dict)
+import Html exposing (Html, button, div, em, img, input, section, span, text, textarea)
 import Html.Attributes exposing (attribute, class, src, style, value)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, field, float, int, list, map2, map3, map6, nullable, string)
+import Json.Encode as Encode
 import List exposing (repeat)
+import Task
+import Time exposing (Posix)
 
--- TODO: render background of modal as translucent
--- TODO: position modal centered
--- TODO: on edit, append a work item to the work queue (post this track comment to the server)
--- TODO: if there are items in the work queue, check to see when they are ready, and save them
--- TODO: if there is another pending track save of the same track, overwrite it
 
 showGraph =
     False
@@ -22,7 +21,7 @@ main =
     Browser.element
         { init = init
         , update = update
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = subscriptions
         , view = view
         }
 
@@ -121,9 +120,39 @@ getTrackList =
         }
 
 
+encodeComment : Comment -> Encode.Value
+encodeComment comment =
+    Encode.object
+        [ ( "excerpt", Encode.string comment.excerpt )
+        , ( "headline", Encode.string comment.headline )
+        ]
+
+
+postComment comment trackId =
+    Http.post
+        { url = "/comment/" ++ trackId
+        , body = Http.jsonBody (encodeComment comment)
+        , expect = Http.expectJson SavedComment string
+        }
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( Init, getTrackList )
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    case model of
+        Ready { pendingCommands } ->
+            if Dict.size pendingCommands > 0 then
+                Time.every 1000 Tick
+
+            else
+                Sub.none
+
+        _ ->
+            Sub.none
 
 
 type UIMode
@@ -131,16 +160,35 @@ type UIMode
     | Editing Track
 
 
+type alias PendingCommand =
+    { time : Posix
+    , comment : Comment
+    , trackId : String
+    , started : Bool
+    }
+
+
+type alias ReadyModel =
+    { tracks : List Track
+    , uiMode : UIMode
+    , pendingCommands : Dict String PendingCommand
+    }
+
+
+type alias TrackId =
+    String
+
+
 type Model
     = Init
-    | Ready TrackList UIMode
+    | Ready ReadyModel
 
 
 editing : Model -> Track -> Model
 editing model track =
     case model of
-        Ready tracks _ ->
-            Ready tracks (Editing track)
+        Ready readyModel ->
+            Ready { readyModel | uiMode = Editing track }
 
         _ ->
             model
@@ -151,28 +199,129 @@ type Msg
     | NoOp
     | OpenEditor Track
     | EditTrack Track
+    | SavedComment (Result Http.Error String)
+    | Tick Time.Posix
+    | EnqueueSave Comment TrackId Posix
+    | ChangeView UIMode
 
 
-changeTrack : Model -> Track -> Model
-changeTrack model track =
+applyModel : (ReadyModel -> ReadyModel) -> Model -> Model
+applyModel f model =
     case model of
-        Ready tracks _ ->
-            Ready tracks (Editing track)
+        Ready readyModel ->
+            Ready <| f readyModel
 
         _ ->
             model
 
 
+changeTrack : Model -> Track -> Model
+changeTrack model track =
+    model
+        |> applyModel (\m -> { m | uiMode = Editing track })
+
+
+dequeue : Model -> TrackId -> Model
+dequeue model trackId =
+    model |> applyModel (\m -> { m | pendingCommands = Dict.remove trackId m.pendingCommands })
+
+
+readyFromTracks : List Track -> ReadyModel
+readyFromTracks tracks =
+    { tracks = tracks
+    , uiMode = Default
+    , pendingCommands = Dict.empty
+    }
+
+
+timeAdd : Posix -> Int -> Posix
+timeAdd posix millis =
+    Time.millisToPosix <| Time.posixToMillis posix + millis
+
+
+timeAfter : Posix -> Posix -> Bool
+timeAfter pointOfReference other =
+    Time.posixToMillis pointOfReference < Time.posixToMillis other
+
+
+waitPeriod =
+    500
+
+
+commandsFromQueue : (Posix -> Bool) -> ReadyModel -> List (Cmd Msg)
+commandsFromQueue predicate { pendingCommands } =
+    pendingCommands
+        |> Dict.values
+        |> List.filter (\c -> predicate c.time)
+        |> List.map (\c -> postComment c.comment c.trackId)
+
+
+enqueueReadyRequests : Model -> Posix -> ( Model, Cmd Msg )
+enqueueReadyRequests model currentTime =
+    let
+        waitTimeOver =
+            \time -> timeAfter currentTime <| timeAdd time waitPeriod
+    in
+    case model of
+        Ready readyModel ->
+            ( Ready { readyModel | pendingCommands = Dict.map (\_ v -> { v | started = waitTimeOver v.time }) readyModel.pendingCommands }
+            , Cmd.batch (commandsFromQueue waitTimeOver readyModel)
+            )
+
+        _ ->
+            ( model, Cmd.none )
+
+
+emptyComment : Comment
+emptyComment =
+    { headline = ""
+    , excerpt = ""
+    }
+
+
+enqueueCommentSave : Track -> Cmd Msg
+enqueueCommentSave track =
+    Task.perform (EnqueueSave (Maybe.withDefault emptyComment track.comment) track.id) Time.now
+
+
 update msg model =
     case msg of
         Loaded (Ok tracks) ->
-            ( Ready tracks Default, Cmd.none )
+            ( Ready <| readyFromTracks tracks, Cmd.none )
 
         OpenEditor track ->
             ( editing model track, Cmd.none )
 
+        ChangeView uiMode ->
+            ( applyModel (\m -> { m | uiMode = uiMode }) model, Cmd.none )
+
         EditTrack track ->
-            ( editing (changeTrack model track) track, Cmd.none )
+            ( editing (changeTrack model track) track, enqueueCommentSave track )
+
+        EnqueueSave comment trackId now ->
+            ( applyModel
+                (\m ->
+                    { m
+                        | pendingCommands =
+                            Dict.insert
+                                trackId
+                                { time = now
+                                , comment = comment
+                                , trackId = trackId
+                                , started = False
+                                }
+                                m.pendingCommands
+                    }
+                )
+                model
+            , Cmd.none
+            )
+
+        SavedComment (Ok trackId) ->
+            ( dequeue model trackId, Cmd.none )
+
+        Tick time ->
+            enqueueReadyRequests model time
 
         _ ->
             ( model, Cmd.none )
@@ -228,7 +377,7 @@ cards model =
         Init ->
             repeat 12 placeholderCard
 
-        Ready tracks _ ->
+        Ready { tracks } ->
             List.map trackCard tracks
 
 
@@ -261,7 +410,7 @@ visualization model =
         Init ->
             []
 
-        Ready tracks _ ->
+        Ready { tracks } ->
             if showGraph then
                 [ graph "green" "energy" 1.0 <| List.map (\t -> t.features.energy) tracks
                 , graph "red" "tempo" 200.0 <| List.map (\t -> t.features.tempo) tracks
@@ -292,15 +441,43 @@ editingView : Track -> Html Msg
 editingView track =
     div
         [ style "position" "fixed"
-        , style "background-color" "green"
+        , style "background-color" "rgba(0, 0, 0, 0.6)"
         , style "height" "100vh"
         , style "width" "100vw"
         , style "top" "0"
         , style "left" "0"
         ]
-        [ section []
-            [ input [ onInput (setCommentHeadline track >> EditTrack), value <| Maybe.withDefault "" <| Maybe.map .headline track.comment ] []
-            , textarea [ onInput (setCommentExcerpt track >> EditTrack), value <| Maybe.withDefault "" <| Maybe.map .excerpt track.comment ] []
+        [ section
+            [ style "top" "40%"
+            , style "width" "40%"
+            , style "background-color" "rgba(255, 255, 255, 0.9)"
+            , style "margin-left" "auto"
+            , style "margin-right" "auto"
+            ]
+            [ input
+                [ style "display" "block"
+                , style "width" "100%"
+                , style "margin-bottom" "1em"
+                , onInput (setCommentHeadline track >> EditTrack)
+                , value <| Maybe.withDefault "" <| Maybe.map .headline track.comment
+                ]
+                []
+            , textarea
+                [ style "display" "block"
+                , style "width" "100%"
+                , style "height" "8em"
+                , style "resize" "none"
+                , style "border" "none"
+                , style "background-color" "rgba(0,0,0,.01)"
+                , style "padding" "1em"
+                , style "box-sizing" "border-box;"
+                , onInput (setCommentExcerpt track >> EditTrack)
+                , value <| Maybe.withDefault "" <| Maybe.map .excerpt track.comment
+                ]
+                []
+            , button
+                [ onClick (ChangeView Default) ]
+                [ Html.text "Done" ]
             ]
         ]
 
@@ -308,8 +485,13 @@ editingView track =
 modalContainer : Model -> Html Msg
 modalContainer model =
     case model of
-        Ready _ (Editing track) ->
-            editingView track
+        Ready { uiMode } ->
+            case uiMode of
+                Editing track ->
+                    editingView track
+
+                _ ->
+                    Html.text ""
 
         _ ->
             Html.text ""
