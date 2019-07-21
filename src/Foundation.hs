@@ -23,8 +23,6 @@ import Yesod.Auth.OpenId    (authOpenId, IdentifierType (Claimed))
 import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Core.Types     (Logger)
 import qualified Yesod.Core.Unsafe as Unsafe
-import qualified Data.CaseInsensitive as CI
-import qualified Data.Text.Encoding as TE
 
 -- | The foundation datatype for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
@@ -164,6 +162,7 @@ instance Yesod App where
     isAuthorized SpotifyLoginR _ = return Authorized
     isAuthorized (PlaylistR _)  _ = return Authorized
     isAuthorized HomeR _ = return Authorized
+    isAuthorized (CommentR _)  _ = return Authorized
     isAuthorized FaviconR _ = return Authorized
     isAuthorized RobotsR _ = return Authorized
     isAuthorized (StaticR _) _ = return Authorized

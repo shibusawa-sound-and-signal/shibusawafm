@@ -1,16 +1,41 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE RecordWildCards   #-}
+
 module Handler.Comment where
 
 import Import
 
-postCommentR :: Handler Value
-postCommentR = do
-    -- requireCheckJsonBody will parse the request body into the appropriate type, or return a 400 status code if the request JSON is invalid.
-    -- (The ToJSON and FromJSON instances are derived in the config/models file).
-    comment <- (requireCheckJsonBody :: Handler Comment)
+data CommentCreateRequest = CommentCreateRequest
+    {
+        headline:: Text,
+        excerpt:: Text
+    }
 
-    -- The YesodAuth instance in Foundation.hs defines the UserId to be the type used for authentication.
-    maybeCurrentUserId <- maybeAuthId
-    let comment' = comment { commentUserId = maybeCurrentUserId }
+instance FromJSON CommentCreateRequest where
+    parseJSON (Object o) =
+        CommentCreateRequest <$> (o .: "headline")
+            <*> (o .: "excerpt")
+    parseJSON _ = mzero
 
-    insertedComment <- runDB $ insertEntity comment'
-    returnJson insertedComment
+commentFromRequest :: Text -> CommentCreateRequest -> TrackComment
+commentFromRequest spotifyTrackId request =
+    TrackComment {
+        trackCommentSpotifyId = spotifyTrackId,
+        trackCommentHeadline = headline request,
+        trackCommentExcerpt = excerpt request
+    }
+
+postCommentR :: Text -> Handler Value
+postCommentR trackId = do
+    commentCreateRequest <- (requireCheckJsonBody :: Handler CommentCreateRequest)
+    existingCommentId <- runDB $ getBy $ UniqueSpotifyId trackId
+
+    result <- case existingCommentId of
+        Just (Entity trackCommentPrimaryKey _) ->
+            runDB $ replace trackCommentPrimaryKey $ commentFromRequest trackId commentCreateRequest
+        Nothing -> do
+            _ <- runDB $ insert $ commentFromRequest trackId commentCreateRequest
+            return ()
+
+    returnJson result

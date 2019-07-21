@@ -6,7 +6,7 @@ import Html exposing (Html, button, div, em, img, input, section, span, text, te
 import Html.Attributes exposing (attribute, class, src, style, value)
 import Html.Events exposing (onClick, onInput)
 import Http
-import Json.Decode exposing (Decoder, field, float, int, list, map2, map3, map6, nullable, string)
+import Json.Decode exposing (Decoder, field, float, int, list, map2, map3, map6, nullable, string, succeed)
 import Json.Encode as Encode
 import List exposing (repeat)
 import Task
@@ -132,7 +132,7 @@ postComment comment trackId =
     Http.post
         { url = "/comment/" ++ trackId
         , body = Http.jsonBody (encodeComment comment)
-        , expect = Http.expectJson SavedComment string
+        , expect = Http.expectJson (SavedComment trackId) (succeed ())
         }
 
 
@@ -145,8 +145,8 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     case model of
         Ready { pendingCommands } ->
-            if Dict.size pendingCommands > 0 then
-                Time.every 1000 Tick
+            if Dict.values pendingCommands |> List.filter (.started >> not) |> List.isEmpty |> not then
+                Time.every 2000 Tick
 
             else
                 Sub.none
@@ -198,8 +198,9 @@ type Msg
     = Loaded (Result Http.Error TrackList)
     | NoOp
     | OpenEditor Track
+    | CloseEditor Track
     | EditTrack Track
-    | SavedComment (Result Http.Error String)
+    | SavedComment String (Result Http.Error ())
     | Tick Time.Posix
     | EnqueueSave Comment TrackId Posix
     | ChangeView UIMode
@@ -214,6 +215,11 @@ applyModel f model =
         _ ->
             model
 
+
+replaceTrack : Track -> Model -> Model
+replaceTrack track model =
+    model
+        |> applyModel (\m -> {m | tracks = List.map (\t -> if t.id == track.id then track else t) m.tracks})
 
 changeTrack : Model -> Track -> Model
 changeTrack model track =
@@ -241,11 +247,11 @@ timeAdd posix millis =
 
 timeAfter : Posix -> Posix -> Bool
 timeAfter pointOfReference other =
-    Time.posixToMillis pointOfReference < Time.posixToMillis other
+    Time.posixToMillis pointOfReference > Time.posixToMillis other
 
 
 waitPeriod =
-    500
+    2000
 
 
 commandsFromQueue : (Posix -> Bool) -> ReadyModel -> List (Cmd Msg)
@@ -292,6 +298,9 @@ update msg model =
         OpenEditor track ->
             ( editing model track, Cmd.none )
 
+        CloseEditor track ->
+            ( model |> replaceTrack track |> applyModel (\m -> { m | uiMode = Default }), Cmd.none )
+
         ChangeView uiMode ->
             ( applyModel (\m -> { m | uiMode = uiMode }) model, Cmd.none )
 
@@ -317,8 +326,11 @@ update msg model =
             , Cmd.none
             )
 
-        SavedComment (Ok trackId) ->
+        SavedComment trackId (Ok ()) ->
             ( dequeue model trackId, Cmd.none )
+
+        SavedComment trackId (Err _) ->
+            Debug.log "failedToSave" <| (dequeue model trackId, Cmd.none)
 
         Tick time ->
             enqueueReadyRequests model time
@@ -476,7 +488,7 @@ editingView track =
                 ]
                 []
             , button
-                [ onClick (ChangeView Default) ]
+                [ onClick (CloseEditor track) ]
                 [ Html.text "Done" ]
             ]
         ]

@@ -12,4 +12,6 @@
 
 /playlist/#Text PlaylistR GET
 
+/comment/#Text CommentR POST
+
 /profile ProfileR GET

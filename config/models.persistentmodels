@@ -18,6 +18,7 @@ Comment json -- Adding "json" causes ToJSON and FromJSON instances to be derived
     deriving Show
 TrackComment json
     spotifyId Text
+    UniqueSpotifyId spotifyId
     headline Text
     excerpt Text
     deriving Show
