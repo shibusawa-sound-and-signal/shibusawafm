@@ -8,6 +8,8 @@ ip-from-header: "_env:YESOD_IP_FROM_HEADER:false"
 
 spotify-key:    "_env:SPOTIFY_KEY:foo"
 spotify-secret: "_env:SPOTIFY_SECRET:foo"
+spotify-client-id: "_env:SPOTIFY_CLIENT_ID:foo"
+spotify-client-secret: "_env:SPOTIFY_CLIENT_SECRET:foo"
 
 # Default behavior: determine the application root from the request headers.
 # Uncomment to set an explicit approot

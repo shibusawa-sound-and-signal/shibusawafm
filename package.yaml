@@ -44,6 +44,7 @@ dependencies:
 - foreign-store
 - http-client
 - req
+- yesod-auth-oauth2
 
 # The library contains all of our application code. The executable
 # defined below is just a thin wrapper.

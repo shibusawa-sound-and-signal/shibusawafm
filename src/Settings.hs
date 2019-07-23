@@ -74,7 +74,9 @@ data AppSettings = AppSettings
     , appAnalytics              :: Maybe Text
     -- ^ Google Analytics code
     , spotifyKey                :: Text
-    , spotifySecret                :: Text
+    , spotifySecret             :: Text
+    , spotifyClientId           :: Text
+    , spotifyClientSecret       :: Text
     , appAuthDummyLogin         :: Bool
     -- ^ Indicate if auth dummy login should be enabled.
     }
@@ -108,6 +110,8 @@ instance FromJSON AppSettings where
         appAuthDummyLogin         <- o .:? "auth-dummy-login"      .!= dev
         spotifyKey                <- o .: "spotify-key"
         spotifySecret             <- o .: "spotify-secret"
+        spotifyClientId           <- o .: "spotify-client-id"
+        spotifyClientSecret           <- o .: "spotify-client-secret"
 
         return AppSettings {..}
 

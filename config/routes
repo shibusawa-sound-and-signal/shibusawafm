@@ -8,10 +8,7 @@
 /robots.txt RobotsR GET
 
 / HomeR GET
-/login SpotifyLoginR GET
 
 /playlist/#Text PlaylistR GET
 
 /comment/#Text CommentR POST
-
-/profile ProfileR GET
