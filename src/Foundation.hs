@@ -23,6 +23,8 @@ import Yesod.Auth.Dummy
 import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Core.Types     (Logger)
 import Yesod.Auth.OAuth2.Spotify
+import Yesod.Auth.OAuth2
+import Yesod.Auth.OAuth2.Prelude
 import qualified Yesod.Core.Unsafe as Unsafe
 
 -- | The foundation datatype for your application. This can be a good place to
@@ -222,7 +224,7 @@ instance YesodPersistRunner App where
     getDBRunner = defaultGetDBRunner appConnPool
 
 instance YesodAuth App where
-    type AuthId App = Text
+    type AuthId App = UserId
 
     -- Where to send a user after successful login
     loginDest :: App -> Route App
@@ -234,20 +236,22 @@ instance YesodAuth App where
     redirectToReferer :: App -> Bool
     redirectToReferer _ = True
 
---     authenticate :: (MonadHandler m, HandlerSite m ~ App)
---                  => Creds App -> m (AuthenticationResult App)
---     authenticate creds = liftHandler $ runDB $ do
---         x <- getBy $ UniqueUser $ credsIdent creds
---         case x of
---             Just (Entity uid _) -> return $ Authenticated uid
---             Nothing -> Authenticated <$> insert User
---                 { userIdent = credsIdent creds
---                 , userPassword = Nothing
---                 }
+    authenticate :: (MonadHandler m, HandlerSite m ~ App)
+                 => Creds App -> m (AuthenticationResult App)
+    authenticate creds = liftHandler $ runDB $ do
+        x <- getBy $ UniqueUser $ credsIdent creds
+        case x of
+            Just (Entity uid _) -> return $ Authenticated uid
+            Nothing -> Authenticated <$> insert User
+                { userIdent = credsIdent creds
+                , userToken = case getAccessToken creds of
+                    Just (AccessToken token) -> token
+                    Nothing -> "---"
+                }
 
-    authenticate = return . Authenticated . credsIdent
+--     authenticate = return . Authenticated . credsIdent
 
-    maybeAuthId = lookupSession "_ID"
+--     maybeAuthId = lookupSession "_ID"
 
     -- You can add other plugins like Google Email, email or OAuth here
     authPlugins :: App -> [AuthPlugin App]
@@ -263,6 +267,8 @@ isAuthenticated = do
     return $ case muid of
         Nothing -> Unauthorized "You must login to access this page"
         Just _ -> Authorized
+
+instance YesodAuthPersist App
 
 -- This instance is required to use forms. You can modify renderMessage to
 -- achieve customized and internationalized form validation messages.

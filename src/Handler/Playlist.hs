@@ -78,16 +78,32 @@ mergeCommentsAndTracks (TrackList tracks) comments features =
 valueFromEntity :: Entity a -> a
 valueFromEntity (Entity _ value) = value
 
-getPlaylistR :: Text -> Handler Value
-getPlaylistR playlistOrAlbumId = do
+readonlyToken :: HandlerFor App Text
+readonlyToken = do
     App {..} <- getYesod
     let AppSettings {..} = appSettings in do
-        (trackList, features) <- R.runReq def $ do
+        token <- R.runReq def $ do
             TokenResponse {..} <- getAccessToken spotifySecret spotifyKey
-            tracks <- getTrackList accessToken playlistOrAlbumId
-            audioFeatures <- getAudioFeatures accessToken $ map trackId $ getTracks tracks
---             audioAnalyses <- mapM (getAudioAnalysis accessToken) (map trackId $ getTracks tracks)
-            pure (tracks, audioFeatures)
+            pure accessToken
+        return token
 
-        comments <- runDB $ selectCommentsBySpotifyId $ map trackId $ getTracks trackList
-        returnJson $ mergeCommentsAndTracks trackList (map valueFromEntity comments) (audioFeatures features)
+accessTokenFromContext :: HandlerFor App Text
+accessTokenFromContext = do
+    currentUser <- maybeAuth
+    token <- case currentUser of
+        Just (Entity _ user) -> return $ userToken user
+        Nothing -> readonlyToken
+    return token
+
+
+getPlaylistR :: Text -> Handler Value
+getPlaylistR playlistOrAlbumId = do
+    accessToken <- accessTokenFromContext
+    (trackList, features) <- R.runReq def $ do
+        tracks <- getTrackList accessToken playlistOrAlbumId
+        audioFeatures <- getAudioFeatures accessToken $ map trackId $ getTracks tracks
+--         audioAnalyses <- mapM (getAudioAnalysis accessToken) (map trackId $ getTracks tracks)
+        pure (tracks, audioFeatures)
+
+    comments <- runDB $ selectCommentsBySpotifyId $ map trackId $ getTracks trackList
+    returnJson $ mergeCommentsAndTracks trackList (map valueFromEntity comments) (audioFeatures features)
