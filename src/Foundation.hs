@@ -223,6 +223,15 @@ instance YesodPersistRunner App where
     getDBRunner :: Handler (DBRunner App, Handler ())
     getDBRunner = defaultGetDBRunner appConnPool
 
+userFromCreds :: Creds App -> User
+userFromCreds creds =
+    User {
+        userIdent = credsIdent creds
+        , userToken = case getAccessToken creds of
+            Just (AccessToken token) -> token
+            Nothing -> "---"
+        }
+
 instance YesodAuth App where
     type AuthId App = UserId
 
@@ -241,19 +250,13 @@ instance YesodAuth App where
     authenticate creds = liftHandler $ runDB $ do
         x <- getBy $ UniqueUser $ credsIdent creds
         case x of
-            Just (Entity uid _) -> return $ Authenticated uid
-            Nothing -> Authenticated <$> insert User
-                { userIdent = credsIdent creds
-                , userToken = case getAccessToken creds of
-                    Just (AccessToken token) -> token
-                    Nothing -> "---"
-                }
+            Just (Entity uid _) -> do
+              _ <- replace uid $ userFromCreds creds
+              return $ Authenticated uid
+            Nothing -> Authenticated <$> (insert $ userFromCreds creds)
 
 --     authenticate = return . Authenticated . credsIdent
 
---     maybeAuthId = lookupSession "_ID"
-
-    -- You can add other plugins like Google Email, email or OAuth here
     authPlugins :: App -> [AuthPlugin App]
     authPlugins App {..} =
         let AppSettings {..} = appSettings in
