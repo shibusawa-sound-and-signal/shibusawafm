@@ -8,4 +8,4 @@
 <div .container>
     <div #elm-node>
     <script>
-        Elm.Main.init({ node: document.querySelector("#elm-node") })
+        Elm.Main.init({ node: document.querySelector("#elm-node"), flags: { defaultPlaylistId: "627twzacY3mbvUUySz0qPD"} })

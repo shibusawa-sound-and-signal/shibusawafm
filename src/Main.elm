@@ -6,7 +6,7 @@ import Html exposing (Html, button, div, em, img, input, section, span, text, te
 import Html.Attributes exposing (attribute, class, src, style, value)
 import Html.Events exposing (onClick, onInput)
 import Http
-import Json.Decode exposing (Decoder, field, float, int, list, map2, map3, map6, nullable, string, succeed)
+import Json.Decode exposing (Decoder, Value, decodeValue, field, float, int, list, map, map2, map3, map6, nullable, string, succeed)
 import Json.Encode as Encode
 import List exposing (repeat)
 import Task
@@ -113,9 +113,9 @@ trackListDecoder =
     list trackDecoder
 
 
-getTrackList =
+getTrackList playlistId=
     Http.get
-        { url = "/playlist/627twzacY3mbvUUySz0qPD"
+        { url = "/playlist/" ++ playlistId
         , expect = Http.expectJson Loaded trackListDecoder
         }
 
@@ -135,10 +135,23 @@ postComment comment trackId =
         , expect = Http.expectJson (SavedComment trackId) (succeed ())
         }
 
+type alias Config =
+    {
+        defaultPlaylistId: String
+    }
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( Init, getTrackList )
+configDecoder : Decoder Config
+configDecoder =
+    map Config
+        (field "defaultPlaylistId" string)
+
+
+init : Value -> ( Model, Cmd Msg )
+init json =
+    case decodeValue configDecoder json of
+        Ok config ->
+            ( Init, getTrackList config.defaultPlaylistId)
+        _ -> (Errored, Cmd.none)
 
 
 subscriptions : Model -> Sub Msg
@@ -182,6 +195,7 @@ type alias TrackId =
 type Model
     = Init
     | Ready ReadyModel
+    | Errored
 
 
 editing : Model -> Track -> Model
@@ -295,6 +309,8 @@ update msg model =
         Loaded (Ok tracks) ->
             ( Ready <| readyFromTracks tracks, Cmd.none )
 
+        Loaded (_) -> (Errored, Cmd.none)
+
         OpenEditor track ->
             ( editing model track, Cmd.none )
 
@@ -392,6 +408,9 @@ cards model =
         Ready { tracks } ->
             List.map trackCard tracks
 
+        Errored ->
+            [Html.text "an error occurred"]
+
 
 graph : String -> String -> Float -> List Float -> Html Msg
 graph colorString _ domain values =
@@ -419,9 +438,6 @@ graph colorString _ domain values =
 visualization : Model -> List (Html Msg)
 visualization model =
     case model of
-        Init ->
-            []
-
         Ready { tracks } ->
             if showGraph then
                 [ graph "green" "energy" 1.0 <| List.map (\t -> t.features.energy) tracks
@@ -431,6 +447,7 @@ visualization model =
 
             else
                 []
+        _ -> []
 
 
 setCommentHeadline : Track -> String -> Track
