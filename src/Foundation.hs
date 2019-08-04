@@ -154,7 +154,7 @@ instance Yesod App where
     -- Routes not requiring authentication.
     isAuthorized (AuthR _) _ = return Authorized
     isAuthorized (PlaylistR _)  _ = return Authorized
-    isAuthorized PlaylistsForCurrentUserR  _ = return Authorized -- make conditional
+    isAuthorized UserProfileApiR  _ = return Authorized -- make conditional
     isAuthorized HomeR _ = return Authorized
     isAuthorized (CommentR _)  _ = return Authorized -- make conditional
     isAuthorized FaviconR _ = return Authorized

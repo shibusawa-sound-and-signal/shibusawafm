@@ -6,6 +6,7 @@
 module Handler.Playlist where
 
 import Import
+import AccessToken
 import SpotifyRest
 import Network.HTTP.Req as R
 
@@ -76,30 +77,6 @@ mergeCommentsAndTracks (TrackList tracks) comments features =
 
 valueFromEntity :: Entity a -> a
 valueFromEntity (Entity _ value) = value
-
-readonlyToken :: HandlerFor App Text
-readonlyToken = do
-    App {..} <- getYesod
-    let AppSettings {..} = appSettings in do
-        token <- R.runReq def $ do
-            TokenResponse {..} <- getAccessToken spotifySecret spotifyKey
-            pure accessToken
-        return token
-
-accessTokenFromContext :: HandlerFor App Text
-accessTokenFromContext = do
-    currentUser <- maybeAuth
-    token <- case currentUser of
-        Just (Entity _ user) -> return $ userToken user
-        Nothing -> readonlyToken
-    return token
-
-getPlaylistsForCurrentUserR :: Handler Value
-getPlaylistsForCurrentUserR = do
-    accessToken <- accessTokenFromContext
-    items <- R.runReq def $ getMyPlaylists accessToken
-    returnJson $ items
-
 
 getPlaylistR :: Text -> Handler Value
 getPlaylistR playlistOrAlbumId = do

@@ -180,7 +180,9 @@ instance ToJSON PlaylistSummary where
             "name" .= playlistName
         ]
 
-newtype MyPlaylistsResponse = MyPlaylistsResponse [PlaylistSummary] deriving (Show, Eq, ToJSON)
+data MyPlaylistsResponse = MyPlaylistsResponse {
+    myPlaylistsResponseItems :: [PlaylistSummary]
+  }
 
 
 instance FromJSON MyPlaylistsResponse where

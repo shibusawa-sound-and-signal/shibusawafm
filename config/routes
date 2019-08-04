@@ -10,6 +10,7 @@
 / HomeR GET
 
 /playlist/#Text PlaylistR GET
-/playlists PlaylistsForCurrentUserR GET
+
+/api/user-profile UserProfileApiR GET
 
 /comment/#Text CommentR POST
