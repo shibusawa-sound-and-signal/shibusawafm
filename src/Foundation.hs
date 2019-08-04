@@ -17,9 +17,6 @@ import Text.Hamlet          (hamletFile)
 import Text.Jasmine         (minifym)
 import Control.Monad.Logger (LogSource)
 
--- Used only when in "auth-dummy-login" setting is enabled.
-import Yesod.Auth.Dummy
-
 import Yesod.Default.Util   (addStaticContentExternal)
 import Yesod.Core.Types     (Logger)
 import Yesod.Auth.OAuth2.Spotify
@@ -157,8 +154,9 @@ instance Yesod App where
     -- Routes not requiring authentication.
     isAuthorized (AuthR _) _ = return Authorized
     isAuthorized (PlaylistR _)  _ = return Authorized
+    isAuthorized PlaylistsForCurrentUserR  _ = return Authorized -- make conditional
     isAuthorized HomeR _ = return Authorized
-    isAuthorized (CommentR _)  _ = return Authorized
+    isAuthorized (CommentR _)  _ = return Authorized -- make conditional
     isAuthorized FaviconR _ = return Authorized
     isAuthorized RobotsR _ = return Authorized
     isAuthorized (StaticR _) _ = return Authorized

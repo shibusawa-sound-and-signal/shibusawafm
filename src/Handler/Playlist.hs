@@ -7,7 +7,6 @@ module Handler.Playlist where
 
 import Import
 import SpotifyRest
-import Control.Monad
 import Network.HTTP.Req as R
 
 data CommentedTrack = CommentedTrack
@@ -94,6 +93,12 @@ accessTokenFromContext = do
         Just (Entity _ user) -> return $ userToken user
         Nothing -> readonlyToken
     return token
+
+getPlaylistsForCurrentUserR :: Handler Value
+getPlaylistsForCurrentUserR = do
+    accessToken <- accessTokenFromContext
+    items <- R.runReq def $ getMyPlaylists accessToken
+    returnJson $ items
 
 
 getPlaylistR :: Text -> Handler Value

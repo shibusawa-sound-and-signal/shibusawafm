@@ -158,6 +158,44 @@ instance FromJSON TrackList where
         items <- tracks .: "items"
         return $ TrackList items
 
+data PlaylistSummary = PlaylistSummary {
+  playlistId :: Text,
+  playlistName :: Text
+--   images
+} deriving (Show, Eq)
+
+
+instance FromJSON PlaylistSummary where
+    parseJSON (Object o) =
+        PlaylistSummary <$> (o .: "id")
+                   <*> (o .: "name")
+    parseJSON _ = mzero
+
+
+
+instance ToJSON PlaylistSummary where
+    toJSON PlaylistSummary {..} = object
+        [
+            "id" .= playlistId,
+            "name" .= playlistName
+        ]
+
+newtype MyPlaylistsResponse = MyPlaylistsResponse [PlaylistSummary] deriving (Show, Eq, ToJSON)
+
+
+instance FromJSON MyPlaylistsResponse where
+    parseJSON = withObject "MyPlaylistsResponse" $ \o -> do
+        items <- o .: "items"
+        return $ MyPlaylistsResponse items
+
+
+getMyPlaylists :: MonadHttp m => Text -> m MyPlaylistsResponse
+getMyPlaylists accessToken =
+      let url = (https "api.spotify.com"/:"v1"/:"me"/:"playlists")
+          options = header "Authorization" (concat ["Bearer ", encodeUtf8 accessToken]) in
+              req R.GET url NoReqBody jsonResponse options |> R.responseBody
+
+
 getAccessToken :: MonadHttp m => Text -> Text -> m TokenResponse
 getAccessToken secret refreshToken =
     let url = https "accounts.spotify.com" /: "api" /: "token"

@@ -10,5 +10,6 @@
 / HomeR GET
 
 /playlist/#Text PlaylistR GET
+/playlists PlaylistsForCurrentUserR GET
 
 /comment/#Text CommentR POST
