@@ -160,7 +160,8 @@ instance FromJSON TrackList where
 
 data PlaylistSummary = PlaylistSummary {
   playlistId :: Text,
-  playlistName :: Text
+  playlistName :: Text,
+  playlistOwnerId :: Text
 --   images
 } deriving (Show, Eq)
 
@@ -169,6 +170,7 @@ instance FromJSON PlaylistSummary where
     parseJSON (Object o) =
         PlaylistSummary <$> (o .: "id")
                    <*> (o .: "name")
+                   <*> ((o .: "owner") >>= (.: "id"))
     parseJSON _ = mzero
 
 
@@ -177,7 +179,8 @@ instance ToJSON PlaylistSummary where
     toJSON PlaylistSummary {..} = object
         [
             "id" .= playlistId,
-            "name" .= playlistName
+            "name" .= playlistName,
+            "ownerId" .= playlistOwnerId
         ]
 
 data MyPlaylistsResponse = MyPlaylistsResponse {

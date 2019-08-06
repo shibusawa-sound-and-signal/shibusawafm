@@ -24,5 +24,6 @@ instance ToJSON UserProfileResponse where
 getUserProfileApiR :: Handler Value
 getUserProfileApiR = do
     accessToken <- accessTokenFromContext
+    Entity _ user <- requireAuth
     MyPlaylistsResponse {..} <- R.runReq def $ getMyPlaylists accessToken
-    returnJson $ UserProfileResponse { ownedPlaylists = myPlaylistsResponseItems }
+    returnJson $ UserProfileResponse { ownedPlaylists = filter (\item -> (playlistOwnerId item) == userIdent user) myPlaylistsResponseItems }
