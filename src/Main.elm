@@ -68,6 +68,15 @@ type alias TrackFeatures =
     , tempo : Float
     }
 
+type alias PlaylistSummary =
+    { id : String
+    , name : String
+    }
+
+type alias Profile =
+    { ownedPlaylists : List PlaylistSummary
+    }
+
 
 type alias TrackList =
     List Track
@@ -92,6 +101,10 @@ commentDecoder : Decoder Comment
 commentDecoder =
     map2 Comment (field "headline" string) (field "excerpt" string)
 
+playlistSummaryDecoder : Decoder PlaylistSummary
+playlistSummaryDecoder =
+    map2 PlaylistSummary (field "id" string) (field "name" string)
+
 
 trackDecoder : Decoder Track
 trackDecoder =
@@ -108,15 +121,25 @@ trackDecoder =
         )
 
 
+profileDecoder : Decoder Profile
+profileDecoder =
+    map Profile (field "ownedPlaylists" (list playlistSummaryDecoder))
+
 trackListDecoder : Decoder TrackList
 trackListDecoder =
     list trackDecoder
 
 
+getUserProfile =
+    Http.get
+            { url = "/api/user-profile"
+            , expect = Http.expectJson (ProfileLoaded >> PartialLoad) profileDecoder
+            }
+
 getTrackList playlistId=
     Http.get
         { url = "/playlist/" ++ playlistId
-        , expect = Http.expectJson Loaded trackListDecoder
+        , expect = Http.expectJson (PlaylistLoaded >> PartialLoad) trackListDecoder
         }
 
 
@@ -150,7 +173,7 @@ init : Value -> ( Model, Cmd Msg )
 init json =
     case decodeValue configDecoder json of
         Ok config ->
-            ( Init, getTrackList config.defaultPlaylistId)
+            ( Loading Init , Cmd.batch [getTrackList config.defaultPlaylistId, getUserProfile])
         _ -> (Errored, Cmd.none)
 
 
@@ -185,15 +208,20 @@ type alias ReadyModel =
     { tracks : List Track
     , uiMode : UIMode
     , pendingCommands : Dict String PendingCommand
+    , profile : Profile
     }
 
 
 type alias TrackId =
     String
 
+type LoadingModel =
+    Init
+    | JustProfile Profile
+    | JustPlaylist TrackList
 
 type Model
-    = Init
+    = Loading LoadingModel
     | Ready ReadyModel
     | Errored
 
@@ -207,9 +235,12 @@ editing model track =
         _ ->
             model
 
+type PartialLoadResult =
+    ProfileLoaded (Result Http.Error Profile)
+    | PlaylistLoaded (Result Http.Error TrackList)
 
 type Msg
-    = Loaded (Result Http.Error TrackList)
+    = PartialLoad PartialLoadResult
     | NoOp
     | OpenEditor Track
     | CloseEditor Track
@@ -246,11 +277,12 @@ dequeue model trackId =
     model |> applyModel (\m -> { m | pendingCommands = Dict.remove trackId m.pendingCommands })
 
 
-readyFromTracks : List Track -> ReadyModel
-readyFromTracks tracks =
+readyFrom : List Track -> Profile ->  ReadyModel
+readyFrom tracks profile =
     { tracks = tracks
     , uiMode = Default
     , pendingCommands = Dict.empty
+    , profile = profile
     }
 
 
@@ -298,6 +330,26 @@ emptyComment =
     , excerpt = ""
     }
 
+loadHelp : LoadingModel -> PartialLoadResult -> Model
+loadHelp loadingModel partialLoadResult =
+    case (loadingModel, partialLoadResult) of
+        (JustPlaylist playlist, ProfileLoaded (Ok profile)) ->
+            Ready <| readyFrom playlist profile
+        (JustProfile profile, PlaylistLoaded (Ok playlist)) ->
+            Ready <| readyFrom playlist profile
+        (Init, ProfileLoaded (Ok profile)) ->
+            Loading <| JustProfile profile
+        (Init, PlaylistLoaded (Ok playlist)) ->
+            Loading <| JustPlaylist playlist
+        _ ->
+            Errored
+
+load : Model -> PartialLoadResult -> Model
+load model partialLoadResult =
+    case model of
+        Loading loadingModel ->
+            loadHelp loadingModel partialLoadResult
+        _ -> model
 
 enqueueCommentSave : Track -> Cmd Msg
 enqueueCommentSave track =
@@ -306,10 +358,8 @@ enqueueCommentSave track =
 
 update msg model =
     case msg of
-        Loaded (Ok tracks) ->
-            ( Ready <| readyFromTracks tracks, Cmd.none )
-
-        Loaded (_) -> (Errored, Cmd.none)
+        PartialLoad partialLoadResult ->
+            ( load model partialLoadResult, Cmd.none )
 
         OpenEditor track ->
             ( editing model track, Cmd.none )
@@ -402,7 +452,7 @@ trackCard track =
 cards : Model -> List (Html Msg)
 cards model =
     case model of
-        Init ->
+        Loading _ ->
             repeat 12 placeholderCard
 
         Ready { tracks } ->
